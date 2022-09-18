@@ -1,0 +1,8 @@
+# Visual Studio Code files
+.vscode
+
+# Bytecode
+__pycache__
+
+# Builds
+dist/
