@@ -185,12 +185,18 @@ def wrap_libpulse_simple():
         POINTER(c_int)  # error
     ]
 
+    _libpulse_simple.pa_usec_to_bytes.argtypes = [
+        ctypes.c_uint64,  # t
+        ctypes.POINTER(PaSampleSpec)  # spec
+    ]
+    _libpulse_simple.pa_usec_to_bytes.restype = ctypes.c_size_t
+
 
 wrap_libpulse_simple()
 
 
-def pa_simple_new(server: str|None, name: str, dir: PaStreamDirection,
-                  dev: str|None, stream_name: str, ss: PaSampleSpec,
+def pa_simple_new(server: bytes|None, name: bytes, dir: PaStreamDirection,
+                  dev: bytes|None, stream_name: bytes, ss: PaSampleSpec,
                   map: PaChannelMap|None, attr: PaBufferAttr|None, error: int = 0) -> int:
     """Create a new connection to the server.
 
@@ -226,14 +232,8 @@ def pa_simple_new(server: str|None, name: str, dir: PaStreamDirection,
     Exception
         If failed to create stream
     """
-    server = server.encode() if server is not None else server
-    name = name.encode()
-    dir = dir.value
-    dev = dev.encode() if dev is not None else dev
-    stream_name = stream_name.encode()
     error = c_int(error)
-
-    connection = _libpulse_simple.pa_simple_new(server, name, dir, dev,
+    connection = _libpulse_simple.pa_simple_new(server, name, dir.value, dev,
                                                 stream_name, ss, map, attr, error)
     if not connection:
         raise Exception('Failed to create stream: {}'.format(error.value))
@@ -292,3 +292,7 @@ def pa_simple_flush(s: int, error: int = 0):
 
     if ret < 0:
         raise Exception('Failed to flush buffer: {}'.format(error.value))
+
+
+def pa_usec_to_bytes(t: int, spec: PaSampleSpec):
+    return _libpulse_simple.pa_usec_to_bytes(t, spec)
