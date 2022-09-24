@@ -3,6 +3,7 @@
 
 import ctypes
 import numpy as np
+from numba import njit, objmode
 
 
 def shift_frame(frame: np.ndarray, buffer: ctypes.Array, overlap: int, buffer_size: int):
@@ -12,25 +13,30 @@ def shift_frame(frame: np.ndarray, buffer: ctypes.Array, overlap: int, buffer_si
     frame[overlap:] = buffer
 
 
+#@njit
 def calc_spectrum(fft_mags: np.ndarray, window: np.ndarray, frame: np.ndarray):
     fft_mags[:] = np.abs(np.fft.rfft(window * frame))
+    # with objmode():
+    #     fft_mags[:] = np.fft.rfft(window * frame)
+    # fft_mags[:] = np.abs(fft_mags)
 
 
+@njit
 def calc_psd(fft_mags: np.ndarray, squared_window_sum: np.float64):
     # power spectral density
     fft_mags[:] = np.power(fft_mags * 2., 2) / squared_window_sum
 
-
+@njit
 def log_scale(fft_mags: np.ndarray, fft_freq_weights: np.ndarray):
-    np.seterr(divide='ignore')
     fft_mags[:] = 10. * np.log10(fft_mags) + fft_freq_weights
-    np.seterr(all='raise')
 
 
+@njit
 def linear_scale(fft_mags: np.ndarray, fft_freq_weights: np.ndarray):
     fft_mags[:] *= np.power(10, fft_freq_weights / 20)
 
 
+@njit
 def calc_bands(fft_mags, band_mags, band_freq_weights,
                fft_freq_lower_bounds, fft_freq_upper_bounds):
     for i in range(band_freq_weights.size):
@@ -54,6 +60,7 @@ def filter_signal(frame: np.ndarray, buffer, overlap: int, buffer_size: int,
                fft_freq_lower_bounds, fft_freq_upper_bounds)
 
 
+@njit
 def calc_freq_weights(frequencies: np.ndarray, weighting_type: str) -> np.ndarray:
     if weighting_type == 'A':
         a = np.power(12194.0, 2) * np.power(frequencies, 4)
