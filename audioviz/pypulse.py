@@ -5,7 +5,7 @@ https://freedesktop.org/software/pulseaudio/doxygen/simple_8h.html
 
 import ctypes.util
 from ctypes import (
-    POINTER, Structure, c_char_p, c_int, c_size_t, c_uint8, c_uint32, c_uint64, c_void_p
+    POINTER, Array, Structure, c_char_p, c_int, c_size_t, c_uint8, c_uint32, c_uint64, c_void_p
 )
 from enum import Enum, unique
 
@@ -252,7 +252,7 @@ def pa_simple_free(s: int):
     _libpulse_simple.pa_simple_free(s)
 
 
-def pa_simple_write(s: int, data, bytes: int, error: int = 0):
+def pa_simple_write(s: int, data: Array, bytes: int, error: int = 0):
     error = c_int(error)
     ret = _libpulse_simple.pa_simple_write(s, data, bytes, error)
 
@@ -268,7 +268,7 @@ def pa_simple_drain(s: int, error: int = 0):
         raise Exception('Failed to drain stream data: {}'.format(error.value))
 
 
-def pa_simple_read(s: int, data, bytes: int, error: int = 0):
+def pa_simple_read(s: int, data: Array, bytes: int, error: int = 0):
     error = c_int(error)
     ret = _libpulse_simple.pa_simple_read(s, data, bytes, error)
 
