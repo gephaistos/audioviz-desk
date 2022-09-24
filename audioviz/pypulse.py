@@ -280,10 +280,10 @@ def pa_simple_get_latency(s: int, error: int = 0) -> int:
     error = c_int(error)
     latency = _libpulse_simple.pa_simple_get_latency(s, error)
 
-    if error != 0:
+    if error == -1:
         raise Exception('Failed to get latency: {}'.format(error.value))
 
-    return latency.value
+    return latency
 
 
 def pa_simple_flush(s: int, error: int = 0):
