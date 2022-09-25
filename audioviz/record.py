@@ -111,7 +111,7 @@ class Recorder(threading.Thread):
         self.buffer_size = 512
         self.window_type = 'hanning'
         self.weighting_type = 'Z'
-        self.num_bands = 'auto'
+        self.bands_distr = 'octave'
 
         # precalculations
         self.overlap = self.frame_size - self.buffer_size
@@ -125,7 +125,7 @@ class Recorder(threading.Thread):
 
         self.fft_size = self.fft_freqs.size
 
-        if self.num_bands == 'auto':
+        if self.bands_distr == 'octave':
             oct_freq_lower_bounds, oct_freq_upper_bounds = calc_octave_freq_bounds(fraction=3)
             self.band_freq_weights = calc_freq_weights(
                 (oct_freq_lower_bounds + oct_freq_upper_bounds) / 2.0, self.weighting_type
@@ -148,6 +148,8 @@ class Recorder(threading.Thread):
         self.fft_mags = np.zeros(self.fft_size, dtype=np.float32)
         self.band_mags = np.ones(self.band_freq_weights.size)
 
+    def num_bands(self):
+        return self.band_mags.size
 
     def run(self):
         try:
