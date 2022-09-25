@@ -58,8 +58,6 @@ def estimate_fragsize(dev: str|None, spec: PaSampleSpec, observations: int = 50)
     for _ in range(observations):
         stats.append(pa_simple_get_latency(s))
 
-    print('Estimated latency:', max(stats))
-
     pa_simple_free(s)
 
     fragsize = pa_usec_to_bytes(max(stats), spec)

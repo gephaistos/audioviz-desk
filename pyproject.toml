@@ -21,6 +21,9 @@ pep8-naming = "*"
 autopep8 = "*"
 isort = {version = "*", extras = ["colors"]}
 
+[tool.poetry.scripts]
+audioviz = "audioviz.cli.run:run"
+
 
 [build-system]
 requires = ["poetry-core"]

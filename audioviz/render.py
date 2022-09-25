@@ -4,9 +4,9 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 import cairo
-
-from audioviz.record import Recorder
 import numpy as np
+
+from .record import Recorder
 
 
 class Renderer:
@@ -21,7 +21,7 @@ class Renderer:
         self.left_offset = 5
         self.top_offset = 5
 
-        hex_color = '#80808080'.lstrip("#")
+        hex_color = '#3F5F50C0'.lstrip("#")
         nums = [int(hex_color[i:i + 2], 16) / 255.0 for i in range(0, 7, 2)]
         self.bars_color = Gdk.RGBA(*nums)
         self.mag_min = -75 # goes up to -145
@@ -36,7 +36,7 @@ class Renderer:
         screen_size = [mon_geom.width - mon_geom.x, mon_geom.height - mon_geom.y]
 
         self.window.set_type_hint(Gdk.WindowTypeHint.DESKTOP)
-        self.window.set_default_size(*screen_size),
+        self.window.set_default_size(*screen_size)
 
         # set window transparent
         self.window.set_app_paintable(True)
@@ -102,6 +102,7 @@ class Renderer:
 
     def start(self):
         self.recorder.start()
+        print('Press Esc to close.')
         Gtk.main()
 
     def stop(self):
