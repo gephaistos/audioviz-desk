@@ -4,6 +4,13 @@ version = "0.1.0"
 description = "Real-time audio visualizer widget for desktop"
 authors = ["gephaistos <olehmaksa@gmail.com>"]
 readme = "README.md"
+include = [
+    { path = "audioviz/cli/data/config.cfg" }
+]
+# packages = [
+#     { include = 'audioviz' },
+#     { include = 'test', format = 'sdist' }
+# ]
 
 [tool.poetry.dependencies]
 python = "^3.10"

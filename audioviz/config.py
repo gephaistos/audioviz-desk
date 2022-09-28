@@ -9,6 +9,7 @@ from difflib import get_close_matches
 def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
     parser = ConfigParser()
     parser.read(config_path)
+    validate_sections_and_options(parser)
 
     config = {}
 
@@ -42,6 +43,39 @@ def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
     config['buffer_size'] = 512  # discouraged to be set by user
 
     return config
+
+
+def validate_sections_and_options(parser: ConfigParser):
+    valid_secitons = ['Window', 'Listen', 'Bars', 'Effect', 'Spectrum']
+    valid_options = [
+        'fps', 'size', 'position',
+        'device', 'apps',
+        'color', 'padding', 'right_offset', 'bot_offset', 'left_offset', 'top_offset', 'distr',
+        'rotation',
+        'frequency', 'channels', 'window', 'weighting', 'scaling'
+    ]
+
+    invalid_section_suggestions = []
+    invalid_option_suggestions = []
+    for section in parser.sections():
+        if section not in valid_secitons:
+            invalid_section_suggestions.append((
+                section,
+                get_close_matches(section, valid_secitons, 1)[0]
+            ))
+        for option in parser.options(section):
+            if option not in valid_options:
+                invalid_option_suggestions.append((
+                    option,
+                    get_close_matches(option, valid_options, 1)[0]
+                ))
+
+    if invalid_section_suggestions or invalid_option_suggestions:
+        for invalid_section, suggestion in invalid_section_suggestions:
+            print('Invalid section {}. Did you mean {}?'.format(invalid_section, suggestion))
+        for invalid_option, suggestion in invalid_option_suggestions:
+            print('Invalid option {}. Did you mean {}?'.format(invalid_option, suggestion))
+        raise ValueError('Configuration error.')
 
 
 def validate_fps(fps: int) -> int:
