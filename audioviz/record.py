@@ -76,7 +76,7 @@ def estimate_fragsize(dev: str|None, spec: PaSampleSpec, observations: int = 50)
 
 
 class Recorder(threading.Thread):
-    def __init__(self):
+    def __init__(self, config: dict):
         super().__init__()
         self.connection = None
 
@@ -84,17 +84,17 @@ class Recorder(threading.Thread):
         self._callbacks = []
         self._lock = threading.Lock()
 
-        # configuring pulse recorder
+        # pulse recorder
         self.sample_format = PaSampleFormat.PA_SAMPLE_FLOAT32LE
-        self.sample_frequency = 44100
-        self.channels = 1
+        self.sample_frequency = config['frequency']
+        self.channels = config['channels']
 
         self.pulse_config = {
             'name' : 'audioviz-app',
             'stream_name' : 'audio-recorder',
             'ss' : PaSampleSpec(self.sample_format.value, self.sample_frequency, self.channels),
             'server' : None,
-            'dev' : None, # pass name if provided
+            'dev' : None if config['device'] == 'None' else config['device'],
             'map' : None,
             'attr' : None,
         }
@@ -104,27 +104,28 @@ class Recorder(threading.Thread):
                                                  prebuf=-1, minreq=-1,
                                                  fragsize=fragsize)
 
-        # configuring signal processing
-        self.frame_size = 8192
-        self.buffer_size = 512
-        self.window_type = 'hanning'
-        self.weighting_type = 'Z'
-        self.bands_distr = 'octave'
+        # signal processing
+        self.frame_size = config['frame_size']
+        self.buffer_size = config['buffer_size']
+        self.weighting_type = config['weighting_type']
+        self.window = None
 
         # precalculations
         self.overlap = self.frame_size - self.buffer_size
-        if self.window_type == 'hanning':
-            self.window_type = np.hanning(self.frame_size)
-        else:
-            self.window_type = np.ones(self.frame_size)
-        self.squared_window_sum = np.power(np.sum(self.window_type), 2.0)
+        if config['window_type'] == 'hanning':
+            self.window = np.hanning(self.frame_size)
+        elif config['window_type'] == 'rectangle':
+            self.window = np.ones(self.frame_size)
+        self.squared_window_sum = np.power(np.sum(self.window), 2.0)
         self.fft_freqs = np.fft.rfftfreq(self.frame_size, 1.0 / self.sample_frequency)
         self.fft_freq_weights = calc_freq_weights(self.fft_freqs, self.weighting_type)
 
         self.fft_size = self.fft_freqs.size
 
-        if self.bands_distr == 'octave':
-            oct_freq_lower_bounds, oct_freq_upper_bounds = calc_octave_freq_bounds(fraction=3)
+        if config['bands_distr'][0] == 'octave':
+            oct_freq_lower_bounds, oct_freq_upper_bounds = calc_octave_freq_bounds(
+                config['bands_distr'][1]
+            )
             self.band_freq_weights = calc_freq_weights(
                 (oct_freq_lower_bounds + oct_freq_upper_bounds) / 2.0, self.weighting_type
             )
@@ -133,7 +134,7 @@ class Recorder(threading.Thread):
             )
         else:
             self.fft_freq_lower_bounds, self.fft_freq_upper_bounds = calc_uniform_freq_bounds(
-                self.fft_size, self.num_bands
+                self.fft_size, config['bands_distr'][1]
             )
             self.band_freq_weights = calc_freq_weights(
                 (self.fft_freq_lower_bounds + self.fft_freq_upper_bounds) / 2.0,
@@ -156,16 +157,16 @@ class Recorder(threading.Thread):
                 with self._lock:
                     fill_buffer(self.connection, self.buffer)
                     filter_signal(self.frame, self.buffer, self.overlap, self.buffer_size,
-                                    self.fft_mags, self.window_type,
+                                    self.fft_mags, self.window,
                                     self.squared_window_sum,
                                     self.fft_freq_weights,
                                     self.band_mags, self.band_freq_weights,
                                     self.fft_freq_lower_bounds, self.fft_freq_upper_bounds)
                     for callback in self._callbacks:
                         callback()
-        except Exception as e:
+        except Exception as ex:
             self.disconnect()
-            raise e
+            raise ex
         else:
             self.disconnect()
 
@@ -182,7 +183,7 @@ class Recorder(threading.Thread):
         # jit cache warm-up
         fill_buffer(self.connection, self.buffer)
         filter_signal(self.frame, self.buffer, self.overlap, self.buffer_size,
-                      self.fft_mags, self.window_type,
+                      self.fft_mags, self.window,
                       self.squared_window_sum,
                       self.fft_freq_weights,
                       self.band_mags, self.band_freq_weights,

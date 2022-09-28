@@ -26,6 +26,7 @@ def calc_psd(fft_mags: np.ndarray, squared_window_sum: np.float64):
     # power spectral density
     fft_mags[:] = np.power(fft_mags * 2., 2) / squared_window_sum
 
+
 @njit
 def log_scale(fft_mags: np.ndarray, fft_freq_weights: np.ndarray):
     fft_mags[:] = 10. * np.log10(fft_mags) + fft_freq_weights
