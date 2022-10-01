@@ -21,7 +21,7 @@ def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
         print('Position is forced to be 0, 0')
 
     config['device'] = parser.get('Listen', 'device')
-    #config['apps'] = validate_apps(parser.get('Listen', 'apps'))
+    config['apps'] = validate_apps(parser.get('Listen', 'apps'))
 
     config['color'] = validate_color(parser.get('Bars', 'color'))
     config['padding'] = parser.getint('Bars', 'padding')
@@ -30,7 +30,9 @@ def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
     config['left_offset'] = parser.getint('Bars', 'left_offset')
     config['top_offset'] = parser.getint('Bars', 'top_offset')
     config['bands_distr'] = validate_distr(parser.get('Bars', 'distr'))
+    #config['use_interpolation'] = parser.getboolean('Bars', 'use_interpolation')
 
+    #config['gradient'] = validate_gradient(parser.get('Effect', 'gradient'))
     #config['rotation'] = validate_rotation(parser.getint('Effect', 'rotation'))
 
     config['frequency'] = validate_frequency(parser.getint('Spectrum', 'frequency'))
@@ -124,7 +126,7 @@ def validate_position(position: str) -> tuple[int, int]:
 
 
 def validate_apps(apps: str) -> list[str]:
-    if apps == 'any':
+    if apps == 'None':
         return []
 
     return [val.strip() for val in apps.split(',')]
@@ -198,7 +200,7 @@ def validate_channels(channels: int) -> int:
 
 
 def validate_window(window_type: str) -> str:
-    if window_type not in ['hanning', 'rectangle']:
+    if window_type not in ['hanning', 'hamming', 'rectangle']:
         raise ValueError('Wrong value for `window` parameter. '
                          'Valid options: hanning, rectangle.')
 

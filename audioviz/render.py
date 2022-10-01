@@ -5,6 +5,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 import cairo
 import numpy as np
+import pulsectl
 
 from .record import Recorder
 
@@ -13,6 +14,12 @@ class Renderer:
     def __init__(self, config: dict):
         self.recorder = Recorder(config)
         self.recorder.add_callback(self.transfer_data)
+        self.pulse = None
+
+        self.fps = config['fps']
+
+        self.renderer_active = True
+        self.listen_apps = config['apps']
 
         # bars
         self.bars_num = self.recorder.num_bands()
@@ -24,7 +31,7 @@ class Renderer:
         self.top_offset = config['top_offset']
 
         # normalization
-        self.mag_min = -100 # goes up to -145
+        self.mag_min = -80 # goes up to -145
         self.mag_max = -10
 
         self.band_mags = np.full(self.recorder.num_bands(),
@@ -69,12 +76,15 @@ class Renderer:
         self.draw_area.connect("draw", self.render_bars)
         self.window.add(self.draw_area)
 
-        GLib.timeout_add(1000 / config['fps'], self.on_update)
+        if self.listen_apps:
+            GLib.timeout_add(1000 / self.fps, self.on_update_with_source)
+        else:
+            GLib.timeout_add(1000 / self.fps, self.on_update)
         self.window.connect("check-resize", self.on_resize)
         self.window.connect("key-press-event", self.check_escape)
         self.window.connect("destroy", self.stop)
 
-        self.fps_monitor = time.time()
+        #self.fps_monitor = time.time()
 
         self.window.show_all()
 
@@ -90,6 +100,28 @@ class Renderer:
 
     def on_update(self):
         self.draw_area.queue_draw()
+        return True
+
+    def on_update_with_source(self):
+        # increases CPU usage by 2% compared to simple `on_update`
+        corked = True
+        for source in self.pulse.sink_input_list():
+            if source.proplist['application.name'] in self.listen_apps:
+                corked &= source.corked
+
+        if corked:
+            if self.renderer_active:
+                self.recorder.pause()
+                time.sleep(0.1)
+                self.band_mags.fill(self.mag_min)
+                self.draw_area.queue_draw()
+                self.renderer_active = False
+        else:
+            if not self.renderer_active:
+                self.recorder.resume()
+                self.renderer_active = True
+            self.draw_area.queue_draw()
+
         return True
 
     def on_resize(self, *args):
@@ -121,13 +153,17 @@ class Renderer:
         cr.fill()
 
     def start(self):
+        self.recorder.connect()
         self.recorder.start()
-        print('Press Esc to close.')
+        self.pulse = pulsectl.Pulse('source-checker')
+        print('Press Esc to exit.')
         Gtk.main()
 
     def stop(self):
         self.recorder.stop()
         self.recorder.join()
+        self.recorder.disconnect()
+        self.pulse.close()
         Gtk.main_quit()
 
     def check_escape(self, widget, event):

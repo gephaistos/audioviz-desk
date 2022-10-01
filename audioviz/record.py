@@ -80,10 +80,6 @@ class Recorder(threading.Thread):
         super().__init__()
         self.connection = None
 
-        self._stop_event = threading.Event()
-        self._callbacks = []
-        self._lock = threading.Lock()
-
         # pulse recorder
         self.sample_format = PaSampleFormat.PA_SAMPLE_FLOAT32LE
         self.sample_frequency = config['frequency']
@@ -116,6 +112,8 @@ class Recorder(threading.Thread):
             self.window = np.hanning(self.frame_size)
         elif config['window_type'] == 'rectangle':
             self.window = np.ones(self.frame_size)
+        elif config['window_type'] == 'hamming':
+            self.window = np.hamming(self.frame_size)
         self.squared_window_sum = np.power(np.sum(self.window), 2.0)
         self.fft_freqs = np.fft.rfftfreq(self.frame_size, 1.0 / self.sample_frequency)
         self.fft_freq_weights = calc_freq_weights(self.fft_freqs, self.weighting_type)
@@ -147,31 +145,43 @@ class Recorder(threading.Thread):
         self.fft_mags = np.zeros(self.fft_size, dtype=np.float32)
         self.band_mags = np.ones(self.band_freq_weights.size)
 
+        self._callbacks = []
+        self._lock = threading.Lock()
+        self.__running = threading.Event()
+        self.__running.set()
+        self.__unblock = threading.Event()
+        self.__unblock.set()
+
     def num_bands(self):
         return self.band_mags.size
 
     def run(self):
         try:
-            self.connect()
-            while not self._stop_event.is_set():
+            while self.__running.is_set():
+                self.__unblock.wait()
                 with self._lock:
                     fill_buffer(self.connection, self.buffer)
                     filter_signal(self.frame, self.buffer, self.overlap, self.buffer_size,
-                                    self.fft_mags, self.window,
-                                    self.squared_window_sum,
-                                    self.fft_freq_weights,
-                                    self.band_mags, self.band_freq_weights,
-                                    self.fft_freq_lower_bounds, self.fft_freq_upper_bounds)
+                                  self.fft_mags, self.window,
+                                  self.squared_window_sum,
+                                  self.fft_freq_weights,
+                                  self.band_mags, self.band_freq_weights,
+                                  self.fft_freq_lower_bounds, self.fft_freq_upper_bounds)
                     for callback in self._callbacks:
                         callback()
         except Exception as ex:
             self.disconnect()
             raise ex
-        else:
-            self.disconnect()
+
+    def resume(self):
+        self.__unblock.set()
+
+    def pause(self):
+        self.__unblock.clear()
 
     def stop(self):
-        self._stop_event.set()
+        self.__unblock.set()
+        self.__running.clear()
 
     def add_callback(self, callback):
         self._callbacks.append(callback)
