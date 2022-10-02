@@ -30,6 +30,8 @@ class Renderer:
         self.left_offset = config['left_offset']
         self.top_offset = config['top_offset']
 
+        self.rotation = config['rotation']
+
         # normalization
         self.mag_min = -80 # goes up to -145
         self.mag_max = -10
@@ -125,14 +127,38 @@ class Renderer:
         return True
 
     def on_resize(self, *args):
-        self.bars_win_width = self.draw_area.get_allocated_width() - self.right_offset
-        self.bars_win_height = self.draw_area.get_allocated_height() - self.bot_offset
+        if self.rotation == 0:
+            self.bars_start_pos = self.draw_area.get_allocated_height() - self.bot_offset
+            self.bars_max_height = self.bars_start_pos - self.top_offset
 
-        total_width = (self.bars_win_width - self.left_offset
-                        ) - self.bars_padding * (self.bars_num - 1)
-        self.bars_width = max(int(total_width / self.bars_num), 1)
-        self.bars_height = self.bars_win_height - self.top_offset
-        self.bars_height /= 2
+            total_bars_width = (self.draw_area.get_allocated_width()
+                               - self.right_offset - self.left_offset) \
+                               - self.bars_padding * (self.bars_num - 1)
+            self.bar_width = max(int(total_bars_width / self.bars_num), 1)
+        elif self.rotation == 90:
+            self.bars_start_pos = self.draw_area.get_allocated_width() - self.right_offset
+            self.bars_max_height = self.bars_start_pos - self.left_offset
+
+            total_bars_width = (self.draw_area.get_allocated_height()
+                               - self.bot_offset - self.top_offset) \
+                               - self.bars_padding * (self.bars_num - 1)
+            self.bar_width = max(int(total_bars_width / self.bars_num), 1)
+        elif self.rotation == 180:
+            self.bars_start_pos = self.top_offset
+            self.bars_max_height = self.draw_area.get_allocated_height() - self.bot_offset
+
+            total_bars_width = (self.draw_area.get_allocated_width()
+                               - self.right_offset - self.left_offset) \
+                               - self.bars_padding * (self.bars_num - 1)
+            self.bar_width = max(int(total_bars_width / self.bars_num), 1)
+        else:
+            self.bars_start_pos = self.left_offset
+            self.bars_max_height = self.draw_area.get_allocated_width() - self.right_offset
+
+            total_bars_width = (self.draw_area.get_allocated_height()
+                               - self.bot_offset - self.top_offset) \
+                               - self.bars_padding * (self.bars_num - 1)
+            self.bar_width = max(int(total_bars_width / self.bars_num), 1)
 
     def render_bars(self, widget, cr):
         # delta = time.time() - self.fps_monitor
@@ -144,12 +170,28 @@ class Renderer:
             (self.band_mags - self.mag_min) / (self.mag_max - self.mag_min),
             0.001, 1.0
         )
-        heights = self.bars_height * norm_heights
+        heights = self.bars_max_height * norm_heights
 
-        dx = self.left_offset
-        for height in heights:
-            cr.rectangle(dx, self.bars_win_height, self.bars_width, -height)
-            dx += self.bars_width + self.bars_padding
+        if self.rotation == 0:
+            dx = self.left_offset
+            for height in heights:
+                cr.rectangle(dx, self.bars_start_pos, self.bar_width, -height)
+                dx += self.bar_width + self.bars_padding
+        elif self.rotation == 90:
+            dy = self.draw_area.get_allocated_height() - self.bot_offset
+            for height in heights:
+                cr.rectangle(self.bars_start_pos, dy, -height, -self.bar_width)
+                dy -= self.bar_width + self.bars_padding
+        elif self.rotation == 180:
+            dx = self.draw_area.get_allocated_width() - self.right_offset
+            for height in heights:
+                cr.rectangle(dx, self.bars_start_pos, -self.bar_width, height)
+                dx -= self.bar_width + self.bars_padding
+        else:
+            dy = self.top_offset
+            for height in heights:
+                cr.rectangle(self.bars_start_pos, dy, height, self.bar_width)
+                dy += self.bar_width + self.bars_padding
         cr.fill()
 
     def start(self):

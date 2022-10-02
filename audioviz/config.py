@@ -33,7 +33,7 @@ def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
     #config['use_interpolation'] = parser.getboolean('Bars', 'use_interpolation')
 
     #config['gradient'] = validate_gradient(parser.get('Effect', 'gradient'))
-    #config['rotation'] = validate_rotation(parser.getint('Effect', 'rotation'))
+    config['rotation'] = validate_rotation(parser.getint('Effect', 'rotation'))
 
     config['frequency'] = validate_frequency(parser.getint('Spectrum', 'frequency'))
     config['channels'] = validate_channels(parser.getint('Spectrum', 'channels'))
@@ -171,9 +171,9 @@ def validate_distr(distr: str) -> tuple[str, int]:
 
 
 def validate_rotation(rotation: int) -> int:
-    if rotation not in [90, 180, 270]:
+    if rotation not in [0, 90, 180, 270]:
         raise ValueError('Wrong value for `rotatation` parameter. '
-                         'Valid options: 90, 180, 270.')
+                         'Valid options: 0, 90, 180, 270.')
 
     return rotation
 
