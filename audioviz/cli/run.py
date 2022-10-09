@@ -3,6 +3,7 @@ import os
 from importlib import resources
 
 from audioviz.render import Renderer
+
 from ..config import parse_config
 
 

@@ -195,9 +195,9 @@ def wrap_libpulse_simple():
 wrap_libpulse_simple()
 
 
-def pa_simple_new(server: bytes|None, name: bytes, dir: PaStreamDirection,
-                  dev: bytes|None, stream_name: bytes, ss: PaSampleSpec,
-                  map: PaChannelMap|None, attr: PaBufferAttr|None, error: int = 0) -> int:
+def pa_simple_new(server: bytes | None, name: bytes, dir: PaStreamDirection,
+                  dev: bytes | None, stream_name: bytes, ss: PaSampleSpec,
+                  map: PaChannelMap | None, attr: PaBufferAttr | None, error: int = 0) -> int:
     """Create a new connection to the server.
 
     Parameters

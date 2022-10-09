@@ -6,7 +6,7 @@ from configparser import ConfigParser
 from difflib import get_close_matches
 
 
-def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
+def parse_config(config_path: str) -> dict[str, bool | int | str | tuple | list]:
     parser = ConfigParser()
     parser.read(config_path)
     validate_sections_and_options(parser)
@@ -30,15 +30,15 @@ def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
     config['left_offset'] = parser.getint('Bars', 'left_offset')
     config['top_offset'] = parser.getint('Bars', 'top_offset')
     config['bands_distr'] = validate_distr(parser.get('Bars', 'distr'))
-    #config['use_interpolation'] = parser.getboolean('Bars', 'use_interpolation')
+    # config['use_interpolation'] = parser.getboolean('Bars', 'use_interpolation')
 
-    #config['gradient'] = validate_gradient(parser.get('Effect', 'gradient'))
+    # config['gradient'] = validate_gradient(parser.get('Effect', 'gradient'))
     config['rotation'] = validate_rotation(parser.getint('Effect', 'rotation'))
     config['monstercat'] = validate_monstercat(parser.getfloat('Effect', 'monstercat'))
 
     config['frequency'] = validate_frequency(parser.getint('Spectrum', 'frequency'))
     config['window_type'] = validate_window(parser.get('Spectrum', 'window'))
-    #config['weighting_type'] = validate_weighting(parser.get('Spectrum', 'weighting'))
+    # config['weighting_type'] = validate_weighting(parser.get('Spectrum', 'weighting'))
     config['lower_freq'], config['upper_freq'] = validate_freq_bounds(
         parser.getint('Spectrum', 'lower_freq'), parser.getint('Spectrum', 'upper_freq'))
 
@@ -94,13 +94,13 @@ def validate_fps(fps: int) -> int:
                          'Wrong value for `fps` parameter. '
                          'Value cannot be zero.')
     if fps > 150:
-            raise ValueError('FPS is too large. '
-                             'Consider using value in range 1..150.')
+        raise ValueError('FPS is too large. '
+                         'Consider using value in range 1..150.')
 
     return fps
 
 
-def validate_size(size: str) -> str|tuple[int, int]:
+def validate_size(size: str) -> str | tuple[int, int]:
     if size == 'screensize':
         return size
 
@@ -161,7 +161,7 @@ def validate_distr(distr: str) -> tuple[str, int]:
             raise ValueError('Fraction value for octave is too low. '
                              'Consider using value in range 1..12 (1-octave..1/12-octave).')
     elif distr[0] == 'logspace':
-        if distr[1] > 128: # 256
+        if distr[1] > 128:  # 256
             raise ValueError('Bars number value for logspace is too large. '
                              'Consider using value in range 1..128.')
         if distr[1] < 1:
@@ -193,8 +193,8 @@ def validate_frequency(frequency: int) -> int:
         raise ValueError('Wrong value for `frequency` parameter. '
                          'Value cannot be negative.')
     if frequency > 22579200:
-            raise ValueError('Sampling frequency is too large. '
-                             'Consider using value in range 8000..22579200.')
+        raise ValueError('Sampling frequency is too large. '
+                         'Consider using value in range 8000..22579200.')
     if frequency < 8000:
         raise ValueError('Sampling frequency is too low. '
                          'Consider using value in range 8000..22579200.')

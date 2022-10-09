@@ -1,15 +1,15 @@
 import time
 
 import gi
-
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import GLib, Gtk, Gdk
+
 import cairo
 import numpy as np
 import pulsectl
 
-from .record import Recorder
 from .effect import monstercat
+from .record import Recorder
 
 
 class Renderer:
@@ -87,7 +87,7 @@ class Renderer:
         self.window.connect("key-press-event", self.check_escape)
         self.window.connect("destroy", self.stop)
 
-        #self.fps_monitor = time.time()
+        # self.fps_monitor = time.time()
 
         self.window.show_all()
 
@@ -133,32 +133,32 @@ class Renderer:
             self.bars_max_height = self.bars_start_pos - self.top_offset
 
             total_bars_width = (self.draw_area.get_allocated_width()
-                               - self.right_offset - self.left_offset) \
-                               - self.bars_padding * (self.bars_num - 1)
+                                - self.right_offset - self.left_offset) \
+                - self.bars_padding * (self.bars_num - 1)
             self.bar_width = max(int(total_bars_width / self.bars_num), 1)
         elif self.rotation == 90:
             self.bars_start_pos = self.draw_area.get_allocated_width() - self.right_offset
             self.bars_max_height = self.bars_start_pos - self.left_offset
 
             total_bars_width = (self.draw_area.get_allocated_height()
-                               - self.bot_offset - self.top_offset) \
-                               - self.bars_padding * (self.bars_num - 1)
+                                - self.bot_offset - self.top_offset) \
+                - self.bars_padding * (self.bars_num - 1)
             self.bar_width = max(int(total_bars_width / self.bars_num), 1)
         elif self.rotation == 180:
             self.bars_start_pos = self.top_offset
             self.bars_max_height = self.draw_area.get_allocated_height() - self.bot_offset
 
             total_bars_width = (self.draw_area.get_allocated_width()
-                               - self.right_offset - self.left_offset) \
-                               - self.bars_padding * (self.bars_num - 1)
+                                - self.right_offset - self.left_offset) \
+                - self.bars_padding * (self.bars_num - 1)
             self.bar_width = max(int(total_bars_width / self.bars_num), 1)
         else:
             self.bars_start_pos = self.left_offset
             self.bars_max_height = self.draw_area.get_allocated_width() - self.right_offset
 
             total_bars_width = (self.draw_area.get_allocated_height()
-                               - self.bot_offset - self.top_offset) \
-                               - self.bars_padding * (self.bars_num - 1)
+                                - self.bot_offset - self.top_offset) \
+                - self.bars_padding * (self.bars_num - 1)
             self.bar_width = max(int(total_bars_width / self.bars_num), 1)
 
     def render_bars(self, widget, cr):

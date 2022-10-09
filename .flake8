@@ -1,3 +1,5 @@
 [flake8]
 max-line-length = 99
-max-doc-length = 72
+max-doc-length = 92
+# ignore E402 since `gi.require_version` is needed before import
+per-file-ignores = render.py: E402

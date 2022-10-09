@@ -2,6 +2,7 @@
 """
 
 import ctypes
+
 import numpy as np
 from numba import njit
 
@@ -11,7 +12,7 @@ def shift_frame(frame: np.ndarray, buffer: ctypes.Array, overlap: int, buffer_si
     frame[overlap:] = buffer
 
 
-#@njit
+# @njit
 def calc_spectrum(fft_mags: np.ndarray, window: np.ndarray, frame: np.ndarray):
     fft_mags[:] = np.abs(np.fft.rfft(window * frame))
     # with numba.objmode():
@@ -27,21 +28,22 @@ def calc_freq_weights(frequencies: np.ndarray, weighting_type: str) -> np.ndarra
         c = (np.power(frequencies, 2) + np.power(107.7, 2))
         d = (np.power(frequencies, 2) + np.power(737.9, 2))
         e = (np.power(frequencies, 2) + np.power(12194.0, 2))
-        R_A = a / (b * np.sqrt(c * d) * e)
-        A = 20 * np.log10(R_A) + 2.0
-        return A
+        r_a = a / (b * np.sqrt(c * d) * e)
+        weight = 20 * np.log10(r_a) + 2.0
+        return weight
     elif weighting_type == 'C':
         a = np.power(12194.0, 2) * np.power(frequencies, 2)
         b = np.power(frequencies, 2) + np.power(20.6, 2)
         c = np.power(frequencies, 2) + np.power(12194.0, 2)
-        R_C = (a / (b * c))
-        C = 20 * np.log10(R_C) + 0.06
-        return C
+        r_c = (a / (b * c))
+        weight = 20 * np.log10(r_c) + 0.06
+        return weight
     elif weighting_type == 'Z':
         return np.ones(frequencies.shape)
 
 
-def calc_octave_freq_bounds(fraction=3, freq_lower_bound=12, freq_upper_bound=20000, g=2) -> tuple[np.ndarray, np.ndarray]:
+def calc_octave_freq_bounds(fraction=3, freq_lower_bound=12, freq_upper_bound=20000,
+                            g=2) -> tuple[np.ndarray, np.ndarray]:
     # https://law.resource.org/pub/us/cfr/ibr/002/ansi.s1.11.2004.pdf
     # https://apmr.matelys.com/Standards/OctaveBands.html
 
@@ -101,7 +103,8 @@ def map_to_fft_bounds(oct_freq_lower_bounds, oct_freq_upper_bounds,
 
 
 def calc_logspace_fft_bounds(sample_frequency, bars, frame_size,
-                             freq_lower_bound=12, freq_upper_bound=20000) -> tuple[np.ndarray, np.ndarray]:
+                             freq_lower_bound=12,
+                             freq_upper_bound=20000) -> tuple[np.ndarray, np.ndarray]:
     fft_lower_bounds = np.zeros(bars + 1, dtype=np.int32)
     fft_upper_bounds = np.zeros(bars + 1, dtype=np.int32)
 
@@ -113,7 +116,7 @@ def calc_logspace_fft_bounds(sample_frequency, bars, frame_size,
         )
         fc[n] = fc[n] / (sample_frequency / 2)
 
-        fft_lower_bounds[n] = fc[n] * (frame_size /2)
+        fft_lower_bounds[n] = fc[n] * (frame_size / 2)
         if (n != 0):
             fft_upper_bounds[n - 1] = fft_lower_bounds[n] - 1
 
@@ -124,13 +127,20 @@ def calc_logspace_fft_bounds(sample_frequency, bars, frame_size,
     return fft_lower_bounds, fft_upper_bounds
 
 
-def calc_freq_amplifier(bars, frame_size, freq_lower_bound=12, freq_upper_bound=20000) -> np.ndarray:
+def calc_freq_amplifier(bars, frame_size,
+                        freq_lower_bound=12, freq_upper_bound=20000) -> np.ndarray:
     amplifier = np.zeros(bars + 1, dtype=np.float64)
 
     bars_third = int(np.round(bars / 3))
-    amplifier[:bars_third] = np.logspace(np.log2(2), np.log2(1), bars_third, base=2)
-    amplifier[bars_third:2 * bars_third] = np.logspace(np.log2(1), np.log2(0.6), bars_third, base=2)
-    amplifier[2 * bars_third:] = np.logspace(np.log2(0.6), np.log2(0.3), bars + 1 - 2 * bars_third, base=2)
+    amplifier[:bars_third] = np.logspace(
+        np.log2(2), np.log2(1), bars_third, base=2
+    )
+    amplifier[bars_third:2 * bars_third] = np.logspace(
+        np.log2(1), np.log2(0.6), bars_third, base=2
+    )
+    amplifier[2 * bars_third:] = np.logspace(
+        np.log2(0.6), np.log2(0.3), bars + 1 - 2 * bars_third, base=2
+    )
 
     freqconst = np.log10(freq_lower_bound / freq_upper_bound) / (1 / (bars + 1) - 1)
     fc = np.zeros(bars + 1, dtype=np.float32)
