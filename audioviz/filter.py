@@ -20,17 +20,6 @@ def calc_spectrum(fft_mags: np.ndarray, window: np.ndarray, frame: np.ndarray):
 
 
 @njit
-def calc_psd(fft_mags: np.ndarray, squared_window_sum: np.float64):
-    # power spectral density
-    fft_mags[:] = np.power(fft_mags * 2., 2) / squared_window_sum
-
-
-@njit
-def log_scale(fft_mags: np.ndarray, fft_weights: np.ndarray):
-    fft_mags[:] = 10. * np.log10(fft_mags) + fft_weights
-
-
-@njit
 def calc_freq_weights(frequencies: np.ndarray, weighting_type: str) -> np.ndarray:
     if weighting_type == 'A':
         a = np.power(12194.0, 2) * np.power(frequencies, 4)
@@ -52,31 +41,7 @@ def calc_freq_weights(frequencies: np.ndarray, weighting_type: str) -> np.ndarra
         return np.ones(frequencies.shape)
 
 
-@njit
-def calc_bands(fft_mags, band_mags, band_weights,
-               fft_lower_bounds, fft_upper_bounds):
-    for i in range(band_weights.size):
-        l = fft_lower_bounds[i]
-        u = fft_upper_bounds[i]
-        band_mags[i] = np.mean(fft_mags[l:u+1]) + band_weights[i]
-
-
-def octave_filter(frame: np.ndarray, buffer, overlap: int, buffer_size: int,
-                  fft_mags: np.ndarray, window: np.ndarray,
-                  squared_window_sum: np.float64,
-                  fft_weights: np.ndarray,
-                  band_mags: np.ndarray, band_weights: np.ndarray,
-                  fft_lower_bounds: np.ndarray, fft_upper_bounds: np.ndarray):
-    # apply compostion of filters
-    shift_frame(frame, buffer, overlap, buffer_size)
-    calc_spectrum(fft_mags, window, frame)
-    calc_psd(fft_mags, squared_window_sum)
-    log_scale(fft_mags, fft_weights)
-    calc_bands(fft_mags, band_mags, band_weights,
-               fft_lower_bounds, fft_upper_bounds)
-
-
-def calc_octave_freq_bounds(fraction=3, g=2, freq_lower_bound=12, freq_upper_bound=20000) -> tuple[np.ndarray, np.ndarray]:
+def calc_octave_freq_bounds(fraction=3, freq_lower_bound=12, freq_upper_bound=20000, g=2) -> tuple[np.ndarray, np.ndarray]:
     # https://law.resource.org/pub/us/cfr/ibr/002/ansi.s1.11.2004.pdf
     # https://apmr.matelys.com/Standards/OctaveBands.html
 
@@ -121,6 +86,8 @@ def calc_octave_freq_bounds(fraction=3, g=2, freq_lower_bound=12, freq_upper_bou
 
 def map_to_fft_bounds(oct_freq_lower_bounds, oct_freq_upper_bounds,
                       fft_size) -> tuple[np.ndarray, np.ndarray]:
+    """Maps calculated octave frequency bounds to fft bounds
+    """
     num_splits = oct_freq_lower_bounds.size
     lower_bounds = np.zeros(num_splits, np.int64)
     upper_bounds = np.zeros(num_splits, np.int64)
@@ -157,7 +124,7 @@ def calc_logspace_fft_bounds(sample_frequency, bars, frame_size,
     return fft_lower_bounds, fft_upper_bounds
 
 
-def calc_freq_amplifier(bars, frame_size, freq_lower_bound=12, freq_upper_bound=12000) -> np.ndarray:
+def calc_freq_amplifier(bars, frame_size, freq_lower_bound=12, freq_upper_bound=20000) -> np.ndarray:
     amplifier = np.zeros(bars + 1, dtype=np.float64)
 
     bars_third = int(np.round(bars / 3))
@@ -176,9 +143,9 @@ def calc_freq_amplifier(bars, frame_size, freq_lower_bound=12, freq_upper_bound=
     return amplifier
 
 
-def logspace_filter(fft_mags, frame, buffer, overlap, buffer_size, window,
-                    bars, fft_lower_bounds, fft_upper_bounds, adjustment, amplifier,
-                    band_mags, cava_mem, noise_reduction):
+def filter_signal(fft_mags, frame, buffer, overlap, buffer_size, window,
+                  bars, fft_lower_bounds, fft_upper_bounds, adjustment, amplifier,
+                  band_mags, cava_mem, noise_reduction):
     shift_frame(frame, buffer, overlap, buffer_size)
     calc_spectrum(fft_mags, window, frame)
     gather_energy(fft_mags, bars, fft_lower_bounds, fft_upper_bounds, adjustment, amplifier,
@@ -204,17 +171,30 @@ def gather_energy(fft_mags, bars, fft_lower_bounds, fft_upper_bounds, adjustment
         band_mags[n] = prev_mags[n] * noise_reduction + band_mags[n]
         prev_mags[n] = band_mags[n]
 
-        diff = 300 - band_mags[n]
+        diff = 1200 - band_mags[n]
         if (diff < 0):
             diff = 0
         div = 1 / (diff + 1)
         prev_mags[n] = prev_mags[n] * (1 - div / 20)
 
-        if (band_mags[n] > 300):
+        if (band_mags[n] > 1200):
             excess = 1
-        band_mags[n] /= 300
+        band_mags[n] /= 1200
 
     if excess:
         adjustment *= 1 - 0.01
     else:
         adjustment *= 1 + 0.001
+
+
+# dead_code
+@njit
+def calc_psd(fft_mags: np.ndarray, squared_window_sum: np.float64):
+    # power spectral density
+    fft_mags[:] = np.power(fft_mags * 2., 2) / squared_window_sum
+
+
+# dead_code
+@njit
+def log_scale(fft_mags: np.ndarray, fft_weights: np.ndarray):
+    fft_mags[:] = 10. * np.log10(fft_mags) + fft_weights

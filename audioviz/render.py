@@ -34,9 +34,8 @@ class Renderer:
 
         self.rotation = config['rotation']
 
-        # normalization
-        self.mag_min = -80 # goes up to -145
-        self.mag_max = -10
+        # initial value and on pause
+        self.mag_min = 0.01
 
         self.band_mags = np.full(self.recorder.num_bands(),
                                  self.mag_min, dtype=np.float64)
@@ -168,6 +167,7 @@ class Renderer:
         # self.fps_monitor = time.time()
         cr.set_source_rgba(*self.bars_color)
 
+        heights = self.bars_max_height * self.band_mags
         monstercat(heights)
 
         if self.rotation == 0:
@@ -211,4 +211,3 @@ class Renderer:
             self.stop()
             return True
         return False
-

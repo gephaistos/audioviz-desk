@@ -37,15 +37,16 @@ def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
     config['monstercat'] = validate_monstercat(parser.getfloat('Effect', 'monstercat'))
 
     config['frequency'] = validate_frequency(parser.getint('Spectrum', 'frequency'))
-    config['channels'] = validate_channels(parser.getint('Spectrum', 'channels'))
     config['window_type'] = validate_window(parser.get('Spectrum', 'window'))
-    config['weighting_type'] = validate_weighting(parser.get('Spectrum', 'weighting'))
+    #config['weighting_type'] = validate_weighting(parser.get('Spectrum', 'weighting'))
     config['lower_freq'], config['upper_freq'] = validate_freq_bounds(
         parser.getint('Spectrum', 'lower_freq'), parser.getint('Spectrum', 'upper_freq'))
 
     # discouraged to be set by user
     config['frame_size'] = 8192  # or 8 * buffer_size
     config['buffer_size'] = 512
+    config['channels'] = 1
+    config['noise_reduction'] = 0.8
 
     return config
 
@@ -199,13 +200,6 @@ def validate_frequency(frequency: int) -> int:
                          'Consider using value in range 8000..22579200.')
 
     return frequency
-
-
-def validate_channels(channels: int) -> int:
-    if channels != 1:
-        raise ValueError('Only value 1 for `channels` parameter is currently supported.')
-
-    return channels
 
 
 def validate_window(window_type: str) -> str:
