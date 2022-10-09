@@ -7,8 +7,8 @@ import numpy as np
 from .pypulse import pa_simple_new, pa_simple_read, pa_simple_free, pa_usec_to_bytes, pa_simple_get_latency
 
 from .pypulse import PaSampleSpec, PaSampleFormat, PaBufferAttr, PaSampleFormat, PaSampleSpec, PaChannelMap, PaBufferAttr, PaStreamDirection
-from .filter import calc_freq_weights, calc_octave_freq_bounds, map_to_fft_freq_bounds, filter_signal, calc_uniform_freq_bounds
-
+from .filter import calc_freq_weights, calc_octave_freq_bounds, map_to_fft_bounds, octave_filter
+from .filter import logspace_filter, calc_freq_amplifier, calc_logspace_fft_bounds
 
 def open_connection(name: str, stream_name: str, ss: PaSampleSpec,
                     server: str|None = None, dev: str|None = None,
@@ -81,7 +81,7 @@ class Recorder(threading.Thread):
         self.connection = None
 
         # pulse recorder
-        self.sample_format = PaSampleFormat.PA_SAMPLE_FLOAT32LE
+        self.sample_format = PaSampleFormat.PA_SAMPLE_FLOAT32LE # try PA_SAMPLE_S16LE
         self.sample_frequency = config['frequency']
         self.channels = config['channels']
 
@@ -96,6 +96,7 @@ class Recorder(threading.Thread):
         }
 
         fragsize = estimate_fragsize(self.pulse_config['dev'], self.pulse_config['ss'])
+        # fragsize = 8 * buffer_size * channels * sample_format / 8 * 2
         self.pulse_config['attr'] = PaBufferAttr(maxlength=-1, tlength=-1,
                                                  prebuf=-1, minreq=-1,
                                                  fragsize=fragsize)
@@ -110,40 +111,47 @@ class Recorder(threading.Thread):
         self.overlap = self.frame_size - self.buffer_size
         if config['window_type'] == 'hanning':
             self.window = np.hanning(self.frame_size)
-        elif config['window_type'] == 'rectangle':
-            self.window = np.ones(self.frame_size)
         elif config['window_type'] == 'hamming':
             self.window = np.hamming(self.frame_size)
-        self.squared_window_sum = np.power(np.sum(self.window), 2.0)
-        self.fft_freqs = np.fft.rfftfreq(self.frame_size, 1.0 / self.sample_frequency)
-        self.fft_freq_weights = calc_freq_weights(self.fft_freqs, self.weighting_type)
-
-        self.fft_size = self.fft_freqs.size
+        elif config['window_type'] == 'rectangle':
+            self.window = np.ones(self.frame_size)
+        fft_freqs = np.fft.rfftfreq(self.frame_size, 1.0 / self.sample_frequency)
+        fft_size = fft_freqs.size
 
         if config['bands_distr'][0] == 'octave':
+            self.squared_window_sum = np.power(np.sum(self.window), 2.0)
+            self.fft_weights = calc_freq_weights(fft_freqs, self.weighting_type)
             oct_freq_lower_bounds, oct_freq_upper_bounds = calc_octave_freq_bounds(
                 config['bands_distr'][1]
             )
-            self.band_freq_weights = calc_freq_weights(
+            self.band_weights = calc_freq_weights(
                 (oct_freq_lower_bounds + oct_freq_upper_bounds) / 2.0, self.weighting_type
             )
-            self.fft_freq_lower_bounds, self.fft_freq_upper_bounds = map_to_fft_freq_bounds(
-                oct_freq_lower_bounds, oct_freq_upper_bounds, self.fft_size
+            self.fft_lower_bounds, self.fft_upper_bounds = map_to_fft_bounds(
+                oct_freq_lower_bounds, oct_freq_upper_bounds, fft_size
             )
-        else:
-            self.fft_freq_lower_bounds, self.fft_freq_upper_bounds = calc_uniform_freq_bounds(
-                self.fft_size, config['bands_distr'][1]
+            self.bars = self.band_weights.size
+            self.filter_signal = self.octave_filter
+        elif config['bands_distr'][0] == 'logspace':
+            self.bars = config['bands_distr'][1]
+            self.adjustment = np.ones(self.bars)
+            self.prev_mags = np.zeros(self.bars, dtype=np.float64)
+            freq_lower_bound = config['lower_freq']
+            freq_upper_bound = config['upper_freq']
+            self.noise_reduction = 0.77
+            self.amplifier = calc_freq_amplifier(
+                self.bars, self.frame_size, freq_lower_bound, freq_upper_bound
             )
-            self.band_freq_weights = calc_freq_weights(
-                (self.fft_freq_lower_bounds + self.fft_freq_upper_bounds) / 2.0,
-                self.weighting_type
+            self.fft_lower_bounds, self.fft_upper_bounds = calc_logspace_fft_bounds(
+                self.sample_frequency, self.bars, self.frame_size, freq_lower_bound, freq_upper_bound
             )
+            self.filter_signal = self.logspace_filter
 
         # create buffers
         self.buffer = make_buffer(self.sample_format, self.buffer_size)
         self.frame = np.zeros(self.frame_size, dtype='f')
-        self.fft_mags = np.zeros(self.fft_size, dtype=np.float32)
-        self.band_mags = np.ones(self.band_freq_weights.size)
+        self.fft_mags = np.zeros(fft_size, dtype=np.float64)
+        self.band_mags = np.ones(self.bars)
 
         self._callbacks = []
         self._lock = threading.Lock()
@@ -155,18 +163,27 @@ class Recorder(threading.Thread):
     def num_bands(self):
         return self.band_mags.size
 
+    def logspace_filter(self):
+        logspace_filter(self.fft_mags, self.frame, self.buffer, self.overlap, self.buffer_size,
+                        self.window, self.bars, self.fft_lower_bounds, self.fft_upper_bounds,
+                        self.adjustment, self.amplifier,
+                        self.band_mags, self.prev_mags, self.noise_reduction)
+
+    def octave_filter(self):
+        octave_filter(self.frame, self.buffer, self.overlap, self.buffer_size,
+                      self.fft_mags, self.window,
+                      self.squared_window_sum,
+                      self.fft_weights,
+                      self.band_mags, self.band_weights,
+                      self.fft_lower_bounds, self.fft_upper_bounds)
     def run(self):
         try:
             while self.__running.is_set():
                 self.__unblock.wait()
                 with self._lock:
                     fill_buffer(self.connection, self.buffer)
-                    filter_signal(self.frame, self.buffer, self.overlap, self.buffer_size,
-                                  self.fft_mags, self.window,
-                                  self.squared_window_sum,
-                                  self.fft_freq_weights,
-                                  self.band_mags, self.band_freq_weights,
-                                  self.fft_freq_lower_bounds, self.fft_freq_upper_bounds)
+                    self.filter_signal()
+
                     for callback in self._callbacks:
                         callback()
         except Exception as ex:
@@ -192,13 +209,7 @@ class Recorder(threading.Thread):
 
         # jit cache warm-up
         fill_buffer(self.connection, self.buffer)
-        filter_signal(self.frame, self.buffer, self.overlap, self.buffer_size,
-                      self.fft_mags, self.window,
-                      self.squared_window_sum,
-                      self.fft_freq_weights,
-                      self.band_mags, self.band_freq_weights,
-                      self.fft_freq_lower_bounds, self.fft_freq_upper_bounds)
-
+        self.filter_signal()
 
     def disconnect(self):
         close_connection(self.connection)

@@ -40,10 +40,12 @@ def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
     config['channels'] = validate_channels(parser.getint('Spectrum', 'channels'))
     config['window_type'] = validate_window(parser.get('Spectrum', 'window'))
     config['weighting_type'] = validate_weighting(parser.get('Spectrum', 'weighting'))
-    config['scaling_type'] = validate_scaling(parser.get('Spectrum', 'scaling'))
+    config['lower_freq'], config['upper_freq'] = validate_freq_bounds(
+        parser.getint('Spectrum', 'lower_freq'), parser.getint('Spectrum', 'upper_freq'))
 
-    config['frame_size'] = 8192  # discouraged to be set by user
-    config['buffer_size'] = 512  # discouraged to be set by user
+    # discouraged to be set by user
+    config['frame_size'] = 8192  # or 8 * buffer_size
+    config['buffer_size'] = 512
 
     return config
 
@@ -55,7 +57,7 @@ def validate_sections_and_options(parser: ConfigParser):
         'device', 'apps',
         'color', 'padding', 'right_offset', 'bot_offset', 'left_offset', 'top_offset', 'distr',
         'rotation', 'monstercat',
-        'frequency', 'channels', 'window', 'weighting', 'scaling'
+        'frequency', 'channels', 'window', 'weighting', 'lower_freq', 'upper_freq'
     ]
 
     invalid_section_suggestions = []
@@ -90,9 +92,9 @@ def validate_fps(fps: int) -> int:
         raise ValueError('Trying to stop the time, huh?'
                          'Wrong value for `fps` parameter. '
                          'Value cannot be zero.')
-    if fps > 240:
+    if fps > 150:
             raise ValueError('FPS is too large. '
-                             'Consider using value in range 1..240.')
+                             'Consider using value in range 1..150.')
 
     return fps
 
@@ -157,16 +159,16 @@ def validate_distr(distr: str) -> tuple[str, int]:
         if distr[1] < 1:
             raise ValueError('Fraction value for octave is too low. '
                              'Consider using value in range 1..12 (1-octave..1/12-octave).')
-    elif distr[0] == 'uniform':
-        if distr[1] > 128:
-            raise ValueError('Bars number value for uniform is too large. '
+    elif distr[0] == 'logspace':
+        if distr[1] > 128: # 256
+            raise ValueError('Bars number value for logspace is too large. '
                              'Consider using value in range 1..128.')
         if distr[1] < 1:
-            raise ValueError('Bars number value for uniform is too low. '
+            raise ValueError('Bars number value for logspace is too low. '
                              'Consider using value in range 1..128.')
     else:
         raise ValueError('Wrong value for `distr` parameter. '
-                         'Valid options: octave, uniform.')
+                         'Valid options: octave, logspace.')
 
     return tuple(distr)
 
@@ -222,9 +224,15 @@ def validate_weighting(weighting_type: str) -> str:
     return weighting_type
 
 
-def validate_scaling(scaling_type: str) -> str:
-    if scaling_type not in ['log', 'lin']:
-        raise ValueError('Wrong value for `scaling` parameter. '
-                         'Valid options: log, lin.')
+def validate_freq_bounds(lower_freq: int, upper_freq: int) -> tuple[int, int]:
+    if lower_freq <= 0:
+        raise ValueError('Wrong value for `lower_freq` parameter. '
+                         'Value should be positive.')
+    if upper_freq <= 0 or upper_freq > 20000:
+        raise ValueError('Wrong value for `upper_freq` parameter. '
+                         'Value should be in range 0..20000.')
+    if lower_freq >= upper_freq:
+        raise ValueError('Wrong values for `lower_freq` and `upper_freq` parameters. '
+                         'Values should make up a positive range.')
 
-    return scaling_type
+    return lower_freq, upper_freq
