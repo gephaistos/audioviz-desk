@@ -1,6 +1,7 @@
 import time
 
 import gi
+
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 import cairo
@@ -8,6 +9,7 @@ import numpy as np
 import pulsectl
 
 from .record import Recorder
+from .effect import monstercat
 
 
 class Renderer:
@@ -166,11 +168,7 @@ class Renderer:
         # self.fps_monitor = time.time()
         cr.set_source_rgba(*self.bars_color)
 
-        norm_heights = np.clip( # normalize
-            (self.band_mags - self.mag_min) / (self.mag_max - self.mag_min),
-            0.001, 1.0
-        )
-        heights = self.bars_max_height * norm_heights
+        monstercat(heights)
 
         if self.rotation == 0:
             dx = self.left_offset

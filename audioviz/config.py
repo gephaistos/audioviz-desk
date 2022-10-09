@@ -34,6 +34,7 @@ def parse_config(config_path: str) -> dict[str, bool|int|str|tuple|list]:
 
     #config['gradient'] = validate_gradient(parser.get('Effect', 'gradient'))
     config['rotation'] = validate_rotation(parser.getint('Effect', 'rotation'))
+    config['monstercat'] = validate_monstercat(parser.getfloat('Effect', 'monstercat'))
 
     config['frequency'] = validate_frequency(parser.getint('Spectrum', 'frequency'))
     config['channels'] = validate_channels(parser.getint('Spectrum', 'channels'))
@@ -53,7 +54,7 @@ def validate_sections_and_options(parser: ConfigParser):
         'fps', 'size', 'position',
         'device', 'apps',
         'color', 'padding', 'right_offset', 'bot_offset', 'left_offset', 'top_offset', 'distr',
-        'rotation',
+        'rotation', 'monstercat',
         'frequency', 'channels', 'window', 'weighting', 'scaling'
     ]
 
@@ -176,6 +177,12 @@ def validate_rotation(rotation: int) -> int:
                          'Valid options: 0, 90, 180, 270.')
 
     return rotation
+
+
+def validate_monstercat(monstercat: float) -> float:
+    if monstercat <= 0.0:
+        raise ValueError('Wrongs value for `monstercat` parameter. '
+                         'Value should be positive.')
 
 
 def validate_frequency(frequency: int) -> int:
